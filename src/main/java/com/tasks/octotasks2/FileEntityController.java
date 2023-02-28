@@ -1,5 +1,10 @@
 package com.tasks.octotasks2;
 
+import jakarta.servlet.ServletContext;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -10,37 +15,53 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Iterator;
+import java.util.UUID;
+
 @RestController
 public class FileEntityController {
     @Autowired
-    private IFileEntityService fileEntityService;
+    private FileService fileService;
+    private static String absolutePath = "/Users/Timur/IdeaProjects/uploaded/";
     @PostMapping("/upload")
-    public FileEntityResponse uploadDb(@RequestParam("file") MultipartFile multipartFile)
-    {
-        FileEntity uploadedFile = fileEntityService.upload(multipartFile);
-        FileEntityResponse response = new FileEntityResponse();
-        if(uploadedFile!=null){
+    public FileEntityResponse uploadLocal(@RequestParam("file")MultipartFile file) throws IOException {
+        UUID uuid=UUID.randomUUID();
+        try {
+            byte[] data = file.getBytes();
+            Path path = Paths.get(absolutePath+uuid+file.getOriginalFilename());
+            System.out.println(path);
+            Files.write(path, data);
+            FileEntityResponse response = new FileEntityResponse();
             String downloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
                     .path("/download/")
-                    .path(uploadedFile.getFileId())
+                    .path(uuid+file.getOriginalFilename())
                     .toUriString();
             response.setDownloadUri(downloadUri);
-            response.setFileId(uploadedFile.getFileId());
             response.setUploadStatus(true);
             response.setMessage("File Uploaded Successfully!");
             return response;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
-        response.setMessage("Something went wrong.");
-        return response;
     }
-
     @GetMapping("/download/{id}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String id)
-    {
-        FileEntity uploadedFileToRet =  fileEntityService.download(id);
+    public ResponseEntity<Resource> downloadFile(@PathVariable String id) throws IOException {
+        Path path = Paths.get(absolutePath+id);
+        fileService.populateFile(path);
+        ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename= "+uploadedFileToRet.getFileName())
-                .body(new ByteArrayResource(uploadedFileToRet.getFileData()));
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename= "+id)
+                .body(resource);
     }
 
 }
+
+

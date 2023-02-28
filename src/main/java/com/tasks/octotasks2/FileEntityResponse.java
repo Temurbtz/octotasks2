@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FileEntityResponse {
-    private String fileId;
+
     private String fileType;
     private String message;
     private boolean uploadStatus;
